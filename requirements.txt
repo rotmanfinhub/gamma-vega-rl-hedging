@@ -1,0 +1,14 @@
+dm-env==1.5
+gym==0.24.1
+numpy==1.23.1
+pytest==6.2.5
+reverb==2.0.1
+scipy==1.8.1
+torch==1.11.0
+tqdm==4.64.0
+dm-acme[jax,tensorflow,envs]==0.4.0
+dm-sonnet==2.0.0
+dm-launchpad==0.5.0
+trfl==1.2.0
+pyyaml==5.4.1
+xmanager==0.2.0
