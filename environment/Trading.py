@@ -443,7 +443,11 @@ class MainPortfolio(AssetInterface):
         """
         result.stock_price = self.a_price[self.sim_episode, t]
         result.hed_cost = reward = self.hed_port.add(self.sim_episode, t, action)
+        cur_stock_holding = self.underlying.position
         result.stock_position = self.underlying.position = -1 * (self.hed_port.get_delta(t) + self.liab_port.get_delta(t))
+        stock_traded = abs(cur_stock_holding - self.underlying.position)
+        result.delta_hed_cost = -stock_traded*5e-4
+        reward += result.delta_hed_cost
         result.liab_port_gamma = self.liab_port.get_gamma(t)
         result.liab_port_vega = self.liab_port.get_vega(t)
         result.hed_port_gamma = self.hed_port.get_gamma(t)

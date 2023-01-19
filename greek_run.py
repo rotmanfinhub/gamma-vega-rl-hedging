@@ -9,6 +9,7 @@ import dm_env
 from environment.Environment import TradingEnv
 from environment.utils import Utils
 from agent.agent import DeltaHedgeAgent, GammaHedgeAgent, VegaHedgeAgent
+from analysis.gen_stats import generate_stat
 
 from absl import app
 from absl import flags
@@ -87,6 +88,7 @@ def main(argv):
         eval_loop = acme.EnvironmentLoop(eval_env, eval_actor, label='eval_loop', logger=make_logger(work_folder, 'eval_vega_loop', True))
         eval_loop.run(num_episodes=5_000)
 
+    generate_stat(f'./logs/{work_folder}/logs/eval_{FLAGS.strategy}_env/logs.csv', [0.95,0.9,0.85,0.8,0.75,0.7,0.65,0.6,0.5])
     Path(f'./logs/{work_folder}/ok').touch()
 
 if __name__ == '__main__':

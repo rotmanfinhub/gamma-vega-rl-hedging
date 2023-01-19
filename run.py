@@ -21,6 +21,7 @@ import pandas as pd
 from environment.Environment import TradingEnv
 from environment.utils import Utils
 import agent.distributional as ad
+from analysis.gen_stats import generate_stat
 
 from absl import app
 from absl import flags
@@ -293,6 +294,7 @@ def main(argv):
     eval_env = make_environment(utils=eval_utils, logger=make_logger(work_folder,'eval_env'))
     eval_loop = acme.EnvironmentLoop(eval_env, eval_actor, label='eval_loop', logger=loggers['eval_loop'])
     eval_loop.run(num_episodes=FLAGS.eval_sim)   
+    generate_stat(f'./logs/{work_folder}/logs/eval_env/logs.csv', [0.95,0.9,0.85,0.8,0.75,0.7,0.65,0.6,0.5])
     
     Path(f'./logs/{work_folder}/ok').touch()
 

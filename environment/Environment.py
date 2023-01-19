@@ -29,6 +29,7 @@ class StepResult:
     liab_port_gamma: float = 0.
     liab_port_vega: float = 0.
     liab_port_pnl: float = 0.
+    delta_hed_cost: float = 0.
     hed_cost: float = 0.
     hed_port_gamma: float = 0.
     hed_port_vega: float = 0.
