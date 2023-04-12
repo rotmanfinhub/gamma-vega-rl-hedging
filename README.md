@@ -51,7 +51,7 @@ python run.py -spread=0.005 -obj_func=meanstd -train_sim=40000 -eval_sim=5000 -c
 
 ### Evaluate a Baseline Agent
 ```console
-python greek_run.py -spread=0.02 -gbm=True -eval_sim=5000 -strategy=vega -init_vol=0.3 -mu=0.0 -vov=0.3 -hed_ttm=30 -liab_ttms=60 -init_ttm=30 -poisson_rate=1.0 -vega_obs=False -logger_prefix=batch1/Table2/TC20/Baseline/vega
+python greek_run.py -spread=0.02 -gbm=True -eval_sim=5000 -strategy=gamma -init_vol=0.3 -mu=0.0 -vov=0.3 -hed_ttm=30 -liab_ttms=60 -init_ttm=30 -poisson_rate=1.0 -vega_obs=False -logger_prefix=batch1/Table2/TC20/Baseline/vega
 ```
 
 ## Result Log Files
