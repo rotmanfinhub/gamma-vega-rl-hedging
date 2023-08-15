@@ -233,7 +233,7 @@ def main(argv):
     environment_spec = specs.make_environment_spec(environment)
     if FLAGS.critic == 'c51':
         agent_networks = make_networks(action_spec=environment_spec.actions)
-    elif FLAGS.critic == 'qr':
+    elif FLAGS.critic == 'qr' or FLAGS.critic == 'gl':
         agent_networks = make_quantile_networks(action_spec=environment_spec.actions)
     elif FLAGS.critic == 'iqn':
         assert FLAGS.obj_func == 'cvar', 'IQN only support CVaR objective.'
