@@ -1,6 +1,7 @@
 from turtle import right
 from typing import Optional, Sequence, Union
 import enum
+import math
 
 from acme.tf.networks import distributions as ad
 from acme.tf.networks import DiscreteValuedHead, CriticMultiplexer, LayerNormMLP
@@ -197,6 +198,14 @@ class QuantileDistribution(tfd.Categorical):
         zero = np.array(0, dtype=dtype_util.as_numpy_dtype(cdf.dtype))
         cprobs = tf.where(exclude_probs, zero, self.probs_parameter())
         return tf.reduce_sum(cprobs * self.values, axis=-1)
+    
+    def transform(self, shift: tf.Tensor, scale: tf.Tensor) -> tf.Tensor:
+        return QuantileDistribution(
+            shift + scale*self._values,
+            self._quantiles,
+            self._probs,
+            name='Shifted_QuantileDistribution')
+        
 
 class QuantileDistProbType(enum.Enum):
     LEFT = 1
@@ -326,4 +335,34 @@ def quantile_regression(q_tm1: QuantileDistribution, r_t: tf.Tensor,
   loss = huber(diff, k)* tf.abs(q_tm1.quantiles - tf.cast(diff < 0, diff.dtype)) / k
   
   return tf.reduce_mean(loss, (0, -1))
+
+
+def gaussian_loss(td_error: tf.Tensor, b: tf.Tensor):
+    abs_u = tf.abs(td_error)
+    def f(x): return (1.0 + tf.math.erf(x / tf.sqrt(2.0))) / 2.0
+    phi = f(-abs_u/b)
+    loss = tf.multiply(abs_u, (1.0 - 2*phi)) + b*tf.sqrt(2.0/math.pi) * \
+        tf.exp(-tf.pow(abs_u, 2.0)/(2*b*b)) - b*math.sqrt(2.0/math.pi)
+    return loss
+
+
+def gl_quantile_regression(q_tm1: QuantileDistribution, r_t: tf.Tensor,
+                           d_t: tf.Tensor,
+                           q_t: QuantileDistribution):
+    """Implements Gaussian loss Loss
+    q_tm1: critic distribution of t-1
+    r_t:   reward
+    d_t:   discount
+    q_t:   target critic distribution of t
+    """
+    Q_expected = q_t.transform(shift=tf.reshape(r_t, (-1, 1)),
+                               scale=tf.reshape(d_t, (-1, 1)))
+    Q_targets = q_tm1
+    td_error = tf.expand_dims(tf.transpose(Q_expected.values), -1) - \
+        Q_targets.values    # (n_tau_p, n_batch, n_tau)
+    std1 = Q_targets.stddev()
+    std2 = Q_expected.stddev()
+    b = tf.reduce_mean(tf.abs(std1 - std2))
+    gaussian_l = gaussian_loss(td_error, b)
+    return tf.reduce_mean(gaussian_l, (0, -1))
   
