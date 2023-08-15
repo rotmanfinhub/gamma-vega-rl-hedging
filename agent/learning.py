@@ -32,7 +32,7 @@ import sonnet as snt
 import tensorflow as tf
 import tree
 
-from agent.distributional import quantile_regression
+from agent.distributional import quantile_regression, gl_quantile_regression
 
 class D4PGLearner(acme.Learner):
     """D4PG learner.
@@ -94,6 +94,8 @@ class D4PGLearner(acme.Learner):
             self._critic_loss_func = losses.categorical
         elif (critic_loss_type == 'qr') or (critic_loss_type == 'iqn'):
             self._critic_loss_func = quantile_regression
+        elif (critic_loss_type == 'gl'):
+            self._critic_loss_func = gl_quantile_regression
         self._critic_type = critic_loss_type
 
         # Store online and target networks.
