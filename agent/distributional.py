@@ -5,7 +5,6 @@ import math
 
 from acme.tf.networks import distributions as ad
 from acme.tf.networks import DiscreteValuedHead, CriticMultiplexer, LayerNormMLP
-from pyrsistent import v
 import sonnet as snt
 import tensorflow as tf
 import tensorflow_probability as tfp
