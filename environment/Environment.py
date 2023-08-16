@@ -91,9 +91,9 @@ class TradingEnv(gym.Env):
                                   np.float("inf")])
         if FLAGS.vega_obs:
             obs_lowbound = np.concatenate([obs_lowbound, [-1 * max_vega * self.utils.contract_size,
-                                                          -np.float("inf")]])
+                                                          -np.inf]])
             obs_highbound = np.concatenate([obs_highbound, [max_vega * self.utils.contract_size,
-                                                            np.float("inf")]])
+                                                            np.inf]])
         self.observation_space = spaces.Box(low=obs_lowbound,high=obs_highbound, dtype=np.float32)
             
         # Initializing the state values
