@@ -1,3 +1,4 @@
+from absl import flags
 from turtle import right
 from typing import Optional, Sequence, Union
 import enum
@@ -17,16 +18,17 @@ tfd = tfp.distributions
 
 uniform_initializer = tf.initializers.VarianceScaling(
     distribution='uniform', mode='fan_out', scale=0.333)
-    
-from absl import flags
+
 
 FLAGS = flags.FLAGS
+
+
 class RiskDiscreteValuedDistribution(ad.DiscreteValuedDistribution):
     def __init__(self,
-               values: tf.Tensor,
-               logits: Optional[tf.Tensor] = None,
-               probs: Optional[tf.Tensor] = None,
-               name: str = 'RiskDiscreteValuedDistribution'):
+                 values: tf.Tensor,
+                 logits: Optional[tf.Tensor] = None,
+                 probs: Optional[tf.Tensor] = None,
+                 name: str = 'RiskDiscreteValuedDistribution'):
         super().__init__(values, logits, probs, name)
 
     def _normal_dist_volc(self, quantile):
@@ -50,25 +52,27 @@ class RiskDiscreteValuedDistribution(ad.DiscreteValuedDistribution):
         zero = np.array(0, dtype=dtype_util.as_numpy_dtype(cdf.dtype))
         clogits = tf.where(exclude_logits, zero, self.probs_parameter())
         return tf.reduce_sum(clogits * self.values, axis=-1)
-        
+
+
 class RiskDiscreteValuedHead(DiscreteValuedHead):
     def __init__(self,
-               vmin: Union[float, np.ndarray, tf.Tensor],
-               vmax: Union[float, np.ndarray, tf.Tensor],
-               num_atoms: int,
-               w_init: Optional[snt.initializers.Initializer] = None,
-               b_init: Optional[snt.initializers.Initializer] = None):
+                 vmin: Union[float, np.ndarray, tf.Tensor],
+                 vmax: Union[float, np.ndarray, tf.Tensor],
+                 num_atoms: int,
+                 w_init: Optional[snt.initializers.Initializer] = None,
+                 b_init: Optional[snt.initializers.Initializer] = None):
         super().__init__(vmin, vmax, num_atoms, w_init, b_init)
-    
+
     def __call__(self, inputs: tf.Tensor) -> RiskDiscreteValuedDistribution:
         logits = self._distributional_layer(inputs)
         logits = tf.reshape(logits,
                             tf.concat([tf.shape(logits)[:1],  # batch size
-                                    tf.shape(self._values)],
-                                    axis=0))
+                                       tf.shape(self._values)],
+                                      axis=0))
         values = tf.cast(self._values, logits.dtype)
 
         return RiskDiscreteValuedDistribution(values=values, logits=logits)
+
 
 def quantile_project(  # pylint: disable=invalid-name
     q: tf.Tensor,
@@ -79,12 +83,12 @@ def quantile_project(  # pylint: disable=invalid-name
 
     This projection works for any support q.
     Let Kq be len(q_grid)
-    
+
     Args:
     q: () quantile
     v: (batch_size, Kq) values to project onto
     q_grid:  (Kq,) Quantiles for P(Zp[i])
-    
+
     Returns:
     Quantile projection of (q_grid, v) onto q.
     """
@@ -99,14 +103,15 @@ def quantile_project(  # pylint: disable=invalid-name
     d_neg = tf.concat([vmax[None], q_grid], 0)[:-1]
 
     # Clips Zp to be in new support range (vmin, vmax).
-    clipped_q = tf.clip_by_value(q, vmin, vmax) # (1,)
+    clipped_q = tf.clip_by_value(q, vmin, vmax)  # (1,)
     eq_mask = tf.cast(tf.equal(q_grid, q), q_grid.dtype)
     if tf.equal(tf.reduce_sum(eq_mask), 1.0):
-        return tf.squeeze(tf.boolean_mask(v, eq_mask, axis=1), axis=-1) # (batch_size, )
+        # (batch_size, )
+        return tf.squeeze(tf.boolean_mask(v, eq_mask, axis=1), axis=-1)
 
     # need interpolation
-    pos_neg_mask = tf.cast(tf.roll(q_grid<=q, 1, axis=0), q_grid.dtype) \
-            *tf.cast(tf.roll(q_grid>=q, -1, axis=0),q_grid.dtype)
+    pos_neg_mask = tf.cast(tf.roll(q_grid <= q, 1, axis=0), q_grid.dtype) \
+        * tf.cast(tf.roll(q_grid >= q, -1, axis=0), q_grid.dtype)
     pos_neg_v = tf.boolean_mask(v, pos_neg_mask, axis=1)    # (batch_size, 2)
 
     # Gets the distance between atom values in support.
@@ -117,8 +122,11 @@ def quantile_project(  # pylint: disable=invalid-name
     delta_qp = clipped_q - clipped_q_grid  # (1, Kq)
 
     d_sign = tf.cast(delta_qp >= 0., dtype=v.dtype)
-    delta_hat = (d_sign * delta_qp / d_pos) - ((1. - d_sign) * delta_qp / d_neg)  # (1, Kq)
-    return tf.reduce_sum(tf.clip_by_value(1. - delta_hat, 0., 1.) * v, 1) # (batch_size, )
+    delta_hat = (d_sign * delta_qp / d_pos) - \
+        ((1. - d_sign) * delta_qp / d_neg)  # (1, Kq)
+    # (batch_size, )
+    return tf.reduce_sum(tf.clip_by_value(1. - delta_hat, 0., 1.) * v, 1)
+
 
 @tfp.experimental.register_composite
 class QuantileDistribution(tfd.Categorical):
@@ -146,7 +154,7 @@ class QuantileDistribution(tfd.Categorical):
     @property
     def quantiles(self) -> tf.Tensor:
         return self._quantiles
-    
+
     @property
     def values(self) -> tf.Tensor:
         return self._values
@@ -154,13 +162,13 @@ class QuantileDistribution(tfd.Categorical):
     @classmethod
     def _parameter_properties(cls, dtype, num_classes=None):
         return dict(
-                values=tfp.util.ParameterProperties(
-                    event_ndims=lambda self: self.quantiles.shape.rank),
-                quantiles=tfp.util.ParameterProperties(
-                    event_ndims=None),
-                probs=tfp.util.ParameterProperties(
-                    event_ndims=None))
-    
+            values=tfp.util.ParameterProperties(
+                event_ndims=lambda self: self.quantiles.shape.rank),
+            quantiles=tfp.util.ParameterProperties(
+                event_ndims=None),
+            probs=tfp.util.ParameterProperties(
+                event_ndims=None))
+
     def _sample_n(self, n, seed=None) -> tf.Tensor:
         indices = super()._sample_n(n, seed=seed)
         return tf.gather(self.values, indices, axis=-1)
@@ -168,7 +176,7 @@ class QuantileDistribution(tfd.Categorical):
     def _mean(self) -> tf.Tensor:
         # assume values are always with equal prob
         return tf.reduce_mean(self.values, axis=-1)
-    
+
     def _variance(self) -> tf.Tensor:
         dist_squared = tf.square(tf.expand_dims(self.mean(), -1) - self.values)
         return tf.reduce_sum(self.probs_parameter() * dist_squared, axis=-1)
@@ -188,7 +196,7 @@ class QuantileDistribution(tfd.Categorical):
 
     def var(self, th) -> tf.Tensor:
         quantile = tf.convert_to_tensor(1 - th)
-        return quantile_project(quantile,self._values,self.quantiles)
+        return quantile_project(quantile, self._values, self.quantiles)
 
     def cvar(self, th) -> tf.Tensor:
         quantile = 1 - th
@@ -197,19 +205,20 @@ class QuantileDistribution(tfd.Categorical):
         zero = np.array(0, dtype=dtype_util.as_numpy_dtype(cdf.dtype))
         cprobs = tf.where(exclude_probs, zero, self.probs_parameter())
         return tf.reduce_sum(cprobs * self.values, axis=-1)
-    
+
     def transform(self, shift: tf.Tensor, scale: tf.Tensor) -> tf.Tensor:
         return QuantileDistribution(
             shift + scale*self._values,
             self._quantiles,
             self._probs,
             name='Shifted_QuantileDistribution')
-        
+
 
 class QuantileDistProbType(enum.Enum):
     LEFT = 1
     MID = 2
     RIGHT = 3
+
 
 class QuantileDiscreteValuedHead(snt.Module):
     def __init__(self,
@@ -222,7 +231,8 @@ class QuantileDiscreteValuedHead(snt.Module):
         assert quantiles[0] > 0
         assert quantiles[-1] < 1.0
         left_probs = quantiles - np.insert(quantiles[:-1], 0, 0.0)
-        right_probs = np.insert(quantiles[1:], len(quantiles)-1, 1.0) - quantiles
+        right_probs = np.insert(
+            quantiles[1:], len(quantiles)-1, 1.0) - quantiles
         if prob_type == QuantileDistProbType.LEFT:
             probs = left_probs
         elif prob_type == QuantileDistProbType.MID:
@@ -256,14 +266,15 @@ class IQNHead(snt.Module):
         self._n_cos = n_cos
         self._n_tau = n_tau
         self._n_k = n_k
-        self._pis = tf.convert_to_tensor([np.pi*i for i in range(self._n_cos)])[None,None,:]
+        self._pis = tf.convert_to_tensor(
+            [np.pi*i for i in range(self._n_cos)])[None, None, :]
         self._phi = snt.nets.MLP(
-            (layer_size,), 
-            w_init=w_init, 
-            activation=tf.nn.relu, 
+            (layer_size,),
+            w_init=w_init,
+            activation=tf.nn.relu,
             activate_final=True)
         self._f = snt.nets.MLP(
-            (layer_size,1),
+            (layer_size, 1),
             w_init=w_init,
             activation=tf.nn.elu,
             activate_final=False
@@ -272,7 +283,8 @@ class IQNHead(snt.Module):
         assert quantiles[0] > 0
         assert quantiles[-1] < 1.0
         left_probs = quantiles - np.insert(quantiles[:-1], 0, 0.0)
-        right_probs = np.insert(quantiles[1:], len(quantiles)-1, 1.0) - quantiles
+        right_probs = np.insert(
+            quantiles[1:], len(quantiles)-1, 1.0) - quantiles
         if prob_type == QuantileDistProbType.LEFT:
             probs = left_probs
         elif prob_type == QuantileDistProbType.MID:
@@ -284,19 +296,22 @@ class IQNHead(snt.Module):
     def __call__(self, inputs: tf.Tensor, policy=False) -> tfd.Distribution:
         if not policy:
             # (batch, n_tau, 1)
-            taus = tf.random.uniform((inputs.shape[0], self._n_tau, 1), 0, 1, dtype=inputs.dtype)
+            taus = tf.random.uniform(
+                (inputs.shape[0], self._n_tau, 1), 0, 1, dtype=inputs.dtype)
         else:
             # (batch, n_k, 1)
-            taus = tf.random.uniform((inputs.shape[0], self._n_k, 1), 0, 1, dtype=inputs.dtype)*(1-self._th)
+            taus = tf.random.uniform(
+                (inputs.shape[0], self._n_k, 1), 0, 1, dtype=inputs.dtype)*(1-self._th)
         cos = tf.cos(taus*self._pis)        # (batch, n_tau, n_cos)
         cos_x = self._phi(cos)              # (batch, n_tau, n_layer)
         x = tf.expand_dims(inputs, axis=1)  # (batch, 1, n_layer)
         icdf = self._f(x*cos_x)             # (batch, n_tau, 1)
         if not policy:
-            taus = tf.transpose(taus, [2,0,1])  # (1, batch, n_tau)
+            taus = tf.transpose(taus, [2, 0, 1])  # (1, batch, n_tau)
         probs = tf.cast(self._probs, inputs.dtype)
         return QuantileDistribution(values=tf.squeeze(icdf, axis=-1), quantiles=taus, probs=probs)
-        
+
+
 class IQNCritic(snt.Module):
     def __init__(self, th, n_cos=64, n_tau=8, n_k=32,
                  critic_layer_sizes: Sequence[int] = (512, 512, 256),
@@ -305,35 +320,18 @@ class IQNCritic(snt.Module):
                  w_init: Optional[snt.initializers.Initializer] = uniform_initializer):
         super().__init__(name='IQNCritic')
         self._head = snt.Sequential([
-                        # The multiplexer concatenates the observations/actions.
-                        CriticMultiplexer(),
-                        LayerNormMLP(critic_layer_sizes, activate_final=True)])
-        self._iqn = IQNHead(th,n_cos,n_tau,n_k,critic_layer_sizes[-1],quantiles,prob_type,w_init)
-    
+            # The multiplexer concatenates the observations/actions.
+            CriticMultiplexer(),
+            LayerNormMLP(critic_layer_sizes, activate_final=True)])
+        self._iqn = IQNHead(th, n_cos, n_tau, n_k,
+                            critic_layer_sizes[-1], quantiles, prob_type, w_init)
+
     def __call__(self, observation: tf.Tensor, action: tf.Tensor, policy=False) -> tfd.Distribution:
         return self._iqn(self._head(observation, action), policy)
 
+
 def huber(x: tf.Tensor, k=1.0):
     return tf.where(tf.abs(x) < k, 0.5 * tf.pow(x, 2), k * (tf.abs(x) - 0.5 * k))
-
-
-def quantile_regression(q_tm1: QuantileDistribution, r_t: tf.Tensor,
-                        d_t: tf.Tensor,
-                        q_t: QuantileDistribution):
-  """Implements Quantile Regression Loss
-  q_tm1: critic distribution of t-1
-  r_t:   reward
-  d_t:   discount
-  q_t:   target critic distribution of t
-  """
-
-  z_t = tf.reshape(r_t, (-1, 1)) + tf.reshape(d_t, (-1, 1)) * q_t.values
-  z_tm1 = q_tm1.values
-  diff = tf.expand_dims(tf.transpose(z_t),-1) - z_tm1    # (n_tau_p, n_batch, n_tau)
-  k=1
-  loss = huber(diff, k)* tf.abs(q_tm1.quantiles - tf.cast(diff < 0, diff.dtype)) / k
-  
-  return tf.reduce_mean(loss, (0, -1))
 
 
 def gaussian_loss(td_error: tf.Tensor, b: tf.Tensor):
@@ -345,25 +343,62 @@ def gaussian_loss(td_error: tf.Tensor, b: tf.Tensor):
     return loss
 
 
-def gl_quantile_regression(q_tm1: QuantileDistribution, r_t: tf.Tensor,
-                           d_t: tf.Tensor,
-                           q_t: QuantileDistribution):
-    """Implements Gaussian loss Loss
+def gaussian_loss_taylor(td_error: tf.Tensor, b: tf.Tensor):
+    abs_u = tf.abs(td_error)
+    loss = tf.where(abs_u <= b, tf.pow(abs_u, 2.0) /
+                    (b*math.sqrt(2.0*math.pi)), abs_u - b*math.sqrt(2.0/math.pi))
+    return loss
+
+
+def laplace_loss(td_error: tf.Tensor, b: tf.Tensor):
+    abs_u = tf.abs(td_error)
+    loss = abs_u + b*tf.exp(-abs_u/b)-b
+    return loss
+
+
+def laplace_loss_taylor(td_error: tf.Tensor, b: tf.Tensor):
+    abs_u = tf.abs(td_error)
+    loss = tf.where(abs_u <= b, tf.pow(abs_u, 2.0) / (2*b), abs_u - b)
+    return loss
+
+
+def quantile_regression(q_tm1: QuantileDistribution, r_t: tf.Tensor,
+                        d_t: tf.Tensor,
+                        q_t: QuantileDistribution,
+                        loss_type='huber'):
+    """Implements Quantile Regression Loss
     q_tm1: critic distribution of t-1
     r_t:   reward
     d_t:   discount
     q_t:   target critic distribution of t
+    loss_type: 'huber', 'gl', 'gl-tl', 'lapl', 'lapl-tl'
     """
-    z_t = tf.reshape(r_t, (-1, 1)) + tf.reshape(d_t, (-1, 1)) * q_t.values   ## similar to quantile_regression
+
+    z_t = tf.reshape(r_t, (-1, 1)) + tf.reshape(d_t, (-1, 1)) * q_t.values
     z_tm1 = q_tm1.values
-    diff = tf.expand_dims(tf.transpose(z_t), -1) - z_tm1  # (n_tau_p, n_batch, n_tau)
+    diff = tf.expand_dims(tf.transpose(z_t), -1) - \
+        z_tm1    # (n_tau_p, n_batch, n_tau)
+    diff_detach = tf.stop_gradient(diff)
 
-    std1 = tf.math.reduce_std(tf.cast(z_t, dtype=tf.float32), 1)      # (n_batch,1)
-    std2 = tf.math.reduce_std(tf.cast(z_tm1, dtype=tf.float32), 1)   # (n_batch,1)
-    b = tf.reduce_mean(tf.abs(std1 - std2))     ## scalar (1)
-    b = tf.stop_gradient(b)    ## should not be involved in the gradient
-    gaussian_l = gaussian_loss(diff, b)* tf.abs(q_tm1.quantiles - tf.cast(diff < 0, diff.dtype)) / b
-    return tf.reduce_mean(gaussian_l, (0, -1))   # (n_batch,1)
-  
+    if loss_type == 'huber':
+        k = 1
+        loss = huber(diff, k) / k
+    else:
+        std1 = tf.math.reduce_std(
+            tf.cast(z_t, dtype=tf.float32), 1)      # (n_batch,1)
+        std2 = tf.math.reduce_std(
+            tf.cast(z_tm1, dtype=tf.float32), 1)   # (n_batch,1)
+        b = tf.reduce_mean(tf.abs(std1 - std2))  # scalar (1)
+        b = tf.stop_gradient(b)  # should not be involved in the gradient
+        if loss_type == 'gl':
+            loss = gaussian_loss(diff, b)
+        elif loss_type == 'gl_tl':
+            loss = gaussian_loss_taylor(diff, b)
+        elif loss_type == 'lapl':
+            loss = laplace_loss(diff, b)
+        elif loss_type == 'lapl_tl':
+            loss = laplace_loss_taylor(diff, b)
 
-
+    loss *= tf.abs(q_tm1.quantiles -
+                   tf.cast(diff_detach < 0, diff_detach.dtype))  # quantile regression loss
+    return tf.reduce_mean(loss, (0, -1))
