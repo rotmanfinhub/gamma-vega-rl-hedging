@@ -361,6 +361,7 @@ def gl_quantile_regression(q_tm1: QuantileDistribution, r_t: tf.Tensor,
     std1 = tf.math.reduce_std(tf.cast(z_t, dtype=tf.float32), 1)      # (n_batch,1)
     std2 = tf.math.reduce_std(tf.cast(z_tm1, dtype=tf.float32), 1)   # (n_batch,1)
     b = tf.reduce_mean(tf.abs(std1 - std2))     ## scalar (1)
+    b = tf.stop_gradient(b)    ## should not be involved in the gradient
     gaussian_l = gaussian_loss(diff, b)* tf.abs(q_tm1.quantiles - tf.cast(diff < 0, diff.dtype)) / b
     return tf.reduce_mean(gaussian_l, (0, -1))   # (n_batch,1)
   
