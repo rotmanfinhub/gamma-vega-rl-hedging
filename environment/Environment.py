@@ -85,10 +85,10 @@ class TradingEnv(gym.Env):
         max_vega = self.portfolio.liab_port.max_vega
         obs_lowbound = np.array([self.portfolio.a_price.min(), 
                                  -1 * max_gamma * self.utils.contract_size, 
-                                 -np.float("inf")])
+                                 -np.inf])
         obs_highbound = np.array([self.portfolio.a_price.max(), 
                                   max_gamma * self.utils.contract_size,
-                                  np.float("inf")])
+                                  np.inf])
         if FLAGS.vega_obs:
             obs_lowbound = np.concatenate([obs_lowbound, [-1 * max_vega * self.utils.contract_size,
                                                           -np.inf]])
