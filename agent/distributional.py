@@ -354,14 +354,15 @@ def gl_quantile_regression(q_tm1: QuantileDistribution, r_t: tf.Tensor,
     d_t:   discount
     q_t:   target critic distribution of t
     """
-    Q_expected = q_t.transform(shift=tf.reshape(r_t, (-1, 1)),
-                               scale=tf.reshape(d_t, (-1, 1)))
-    Q_targets = q_tm1
-    td_error = tf.expand_dims(tf.transpose(Q_expected.values), -1) - \
-        Q_targets.values    # (n_tau_p, n_batch, n_tau)
-    std1 = Q_targets.stddev()
-    std2 = Q_expected.stddev()
-    b = tf.reduce_mean(tf.abs(std1 - std2))
-    gaussian_l = gaussian_loss(td_error, b)
-    return tf.reduce_mean(gaussian_l, (0, -1))
+    z_t = tf.reshape(r_t, (-1, 1)) + tf.reshape(d_t, (-1, 1)) * q_t.values   ## similar to quantile_regression
+    z_tm1 = q_tm1.values
+    diff = tf.expand_dims(tf.transpose(z_t), -1) - z_tm1  # (n_tau_p, n_batch, n_tau)
+
+    std1 = tf.math.reduce_std(tf.cast(z_t, dtype=tf.float32), 1)      # (n_batch,1)
+    std2 = tf.math.reduce_std(tf.cast(z_tm1, dtype=tf.float32), 1)   # (n_batch,1)
+    b = tf.reduce_mean(tf.abs(std1 - std2))     ## scalar (1)
+    gaussian_l = gaussian_loss(diff, b)* tf.abs(q_tm1.quantiles - tf.cast(diff < 0, diff.dtype)) / b
+    return tf.reduce_mean(gaussian_l, (0, -1))   # (n_batch,1)
   
+
+
