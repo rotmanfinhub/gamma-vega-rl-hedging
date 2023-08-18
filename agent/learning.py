@@ -33,8 +33,7 @@ import sonnet as snt
 import tensorflow as tf
 import tree
 
-from agent.distributional import quantile_regression
-
+from agent.distributional import QuantileLoss
 
 class D4PGLearner(acme.Learner):
     """D4PG learner.
@@ -92,11 +91,11 @@ class D4PGLearner(acme.Learner):
         """
         self._th = threshold
         self._obj_func = obj_func
+        
         if critic_loss_type == 'c51':
             self._critic_loss_func = losses.categorical
         elif ('qr' in critic_loss_type) or (critic_loss_type == 'iqn'):
-            self._critic_loss_func = partial(
-                quantile_regression, loss_type=critic_loss_type.split('-')[1])
+            self._critic_loss_func = QuantileLoss(loss_type=critic_loss_type.split('-')[1], b_decay=0.9)
         self._critic_type = critic_loss_type
 
         # Store online and target networks.
@@ -278,6 +277,7 @@ class D4PGLearner(acme.Learner):
         return {
             'critic_loss': critic_loss,
             'policy_loss': policy_loss,
+            'b': self._critic_loss_func.b if ('qr' in self._critic_type) or (self._critic_type == 'iqn') is not None else 1.
         }
 
     def step(self):
