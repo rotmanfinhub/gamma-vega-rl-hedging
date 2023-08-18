@@ -236,9 +236,9 @@ class D4PGLearner(acme.Learner):
             elif self._obj_func == 'var':
                 dpg_q_t = dpg_z_t.var(self._th)
             elif self._obj_func == 'cvar':
-                if self._critic_type == 'qr':
+                if 'qr' in self._critic_type:
                     dpg_q_t = dpg_z_t.cvar(self._th)
-                elif self._critic_type == 'iqn':
+                elif 'iqn' in self._critic_type:
                     dpg_q_t = dpg_z_t.mean()
 
             # Actor loss. If clipping is true use dqda clipping and clip the norm.

@@ -1,5 +1,4 @@
 from absl import flags
-from turtle import right
 from typing import Optional, Sequence, Union
 import enum
 import math
