@@ -9,7 +9,6 @@ import sonnet as snt
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow_probability.python.internal import dtype_util
-from sonnet.src import moving_averages
 import numpy as np
 from scipy.stats import norm
 
