@@ -334,7 +334,7 @@ class QuantileLoss(snt.Module):
         super().__init__(name=name)
         self.loss_type = loss_type
         self.b_decay = b_decay
-        self.b = tf.ones((1,), dtype=tf.float32)
+        self.b = tf.Variable(1.0, dtype=tf.float32, name='b', trainable=False)
 
     def huber(self, x: tf.Tensor, k=1.0):
         return tf.where(tf.abs(x) < k, 0.5 * tf.pow(x, 2), k * (tf.abs(x) - 0.5 * k))
@@ -394,8 +394,10 @@ class QuantileLoss(snt.Module):
                 tf.cast(z_t, dtype=tf.float32), 1)      # (n_batch,1)
             std2 = tf.math.reduce_std(
                 tf.cast(z_tm1, dtype=tf.float32), 1)   # (n_batch,1)
-            b = self.b * self.b_decay + (1 - self.b_decay) * tf.reduce_mean(tf.abs(std1 - std2))
-            b = tf.stop_gradient(b)
+            self.b.assign(self.b*self.b_decay + (1 - self.b_decay)* tf.reduce_mean(tf.abs(std1 - std2)))
+            b = tf.TensorArray(dtype=tf.float32, size=1, dynamic_size=True)
+            b = b.write(0, self.b.value())
+            b = tf.cast(b.stack(), tf.float32)
             if self.loss_type == 'gl':
                 loss = self.gaussian_loss(diff, b)
             elif self.loss_type == 'gl_tl':
